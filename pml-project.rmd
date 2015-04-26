@@ -1,0 +1,95 @@
+---
+title: "PML-Project"
+author: "Anshul"
+date: "Sunday, April 26, 2015"
+output: html_document
+---
+###Executive Summary:
+In this assignment I have utilized the data from  http://groupware.les.inf.puc-rio.br/har to understand and obtain the following goal. The goal of the project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. At the end I  will also use your prediction model to predict 20 different test cases. 
+
+####Loading and Examining the data
+Going through the data lot of NA values were detected so based on this I decided to take out all the columns with NA's to clean the data. 
+This resulted in 60 columns or variables and 160 rows. 
+
+```{r, echo=TRUE}
+library(caret)
+
+# Load the training data set
+trainingAll <- read.csv("pml-training.csv",na.strings=c("NA",""))
+
+# Discard columns with NAs
+NAs <- apply(trainingAll, 2, function(x) { sum(is.na(x)) })
+trainingValid <- trainingAll[, which(NAs == 0)]
+```
+
+#### Cleaning the Data
+Here I took note even after removing the NA value I had nearly 19622 observations. I decided to clean the data further by removing useless predictors and also creating a subset of the data. Keeping in mind that this is a fairly large data set, I used only 50% of the data for my project.
+After removing the useless predictors I ended up with a subset of Data that had 9812 samples and 53 predictors.
+
+```{r, echo=TRUE}
+# Create a subset of trainingValid data set
+trainIndex <- createDataPartition(y = trainingValid$classe, p=0.5,list=FALSE)
+trainData <- trainingValid[trainIndex,]
+
+# Remove useless predictors
+removeIndex <- grep("timestamp|X|user_name|new_window", names(trainData))
+trainData <- trainData[, -removeIndex]
+```
+
+#### Cross-Validation and Radom Forests Algorithm
+I based on our lectures I decided to utilize the Random Forests Algorithm. I also use 10-fold cross valuation for this.
+
+```{r, echo=TRUE}
+# Configure the train control for cross-validation
+tc = trainControl(method = "cv", number = 10)
+
+# Fit the model using Random Forests algorithm
+modelFit <- train(trainData$classe ~.,
+                data = trainData,
+                method="rf",
+                trControl = tc,
+                prox = TRUE,
+                allowParallel = TRUE)
+```
+
+The accuracy of the model is fairly hight at nearly 99.5%. 
+
+```{r,echo=TRUE}
+print(modelFit)
+```
+
+```{r,echo=TRUE}
+print(modelFit$finalModel)
+```
+
+The overall error margin is very low at 0.39%. It seems my utlization of nearly 50% of the data set worked out quite well
+
+####Testing the Data and creating Predictions
+Fitting the model for the predictions.
+
+```{r,echo=TRUE}
+# Load test data
+testingAll = read.csv("pml-testing.csv",na.strings=c("NA",""))
+
+# Only take the columns of testingAll that are also in trainData
+testing <- testingAll[ , which(names(testingAll) %in% names(trainData))]
+
+# Run the prediction
+pred <- predict(modelFit, newdata = testing)
+
+# Utility function provided by the instructor
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(pred)
+```
+
+The model prediction worked out accurately as it eneded up correctly predicting 20 out 20.
+
+
+
